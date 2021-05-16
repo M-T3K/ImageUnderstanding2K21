@@ -1,6 +1,0 @@
-numpy
-pandas
-pillow
-tensorflow
-matplotlib
-tensorflow-datasets
