@@ -3,6 +3,7 @@ import tensorflow.keras as k
 from tensorflow.keras import layers
 import tensorflow_datasets as tfds
 import numpy as np
+import os
 
 
 def autoencoder_model(input_shape=(150, 150, 3)):
@@ -34,13 +35,14 @@ def autoencoder_model(input_shape=(150, 150, 3)):
     return autoencoder
 
 
-def model(encoder, layers=()):
+def model(encoder):
     encoder.trainable = False
     model = k.Sequential([
-        model,
+        encoder,
         layers.Flatten(),
-        layers.Dense(64, activation="relu"),
-        layers.Dense(64, activation="relu"),
+        layers.Dense(128, activation="relu"),
+        layers.Dense(128, activation="relu"),
+        layers.Dense(128, activation="relu"),
         layers.Dense(8, activation='softmax')
     ])
     model.compile(optimizer='adam', loss='mse')
@@ -75,10 +77,30 @@ if __name__ == '__main__':
     print("[TRAIN]: (X,Y)", x_train.shape, y_train.shape)
     print("[TEST]: ", x_test.shape, y_test.shape)
 
-    autoencoder = autoencoder_model()
+    model_name = './models/autoencoder.h5'
 
-    autoencoder.summary()
+    if not os.path.isfile(model_name):
+        autoencoder = autoencoder_model()
 
-    autoencoder.fit(x_train, x_train, batch_size=32, epochs=1)
+        autoencoder.summary()
 
-    autoencoder.save('models/autoencoder.h5')
+        autoencoder.fit(x_train, x_train,
+                        epochs=10,
+                        batch_size=32,
+                        shuffle=True,
+                        validation_data=(x_test, x_test))
+
+        autoencoder.save(model_name)
+
+    # Obtain features from middle layer
+    autoencoder = k.models.load_model(model_name)
+    encoder = k.Model(inputs=autoencoder.input,
+                      outputs=autoencoder.get_layer('encoder').output)
+
+    classifier = model(encoder)
+
+    classifier.fit(x_train, y_train,
+                   epochs=10,
+                   batch_size=32,
+                   shuffle=True,
+                   validation_data=(x_test, y_test))
