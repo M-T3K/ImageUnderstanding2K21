@@ -30,7 +30,7 @@ def autoencoder_model(input_shape=(150, 150, 3)):
                             activation='sigmoid', padding='same')(x)
 
     autoencoder = k.Model(input_img, decoded)
-    autoencoder.compile(optimizer='adam', loss='mse')
+    autoencoder.compile(optimizer='adam', loss='mse', metrics=['acc'])
 
     return autoencoder
 
@@ -45,11 +45,12 @@ def model(encoder):
         layers.Dense(128, activation="relu"),
         layers.Dense(8, activation='softmax')
     ])
-    model.compile(optimizer='adam', loss='mse')
+    model.compile(optimizer='adam', loss='mse', metrics=['acc'])
     return model
 
 
 if __name__ == '__main__':
+
     ds = tfds.load('colorectal_histology', split='train',
                    shuffle_files=True, as_supervised=True)
     input_shape = (150, 150, 3)
@@ -80,6 +81,11 @@ if __name__ == '__main__':
     model_name = './models/autoencoder.h5'
 
     if not os.path.isfile(model_name):
+        tensorboard_callback = k.callbacks.TensorBoard(
+            log_dir="./logs/autoencoder")
+        checkpoints = k.callbacks.ModelCheckpoint(model_name, monitor='loss', verbose=1,
+                                                  save_best_only=True, mode='auto', period=1)
+
         autoencoder = autoencoder_model()
 
         autoencoder.summary()
@@ -88,12 +94,15 @@ if __name__ == '__main__':
                         epochs=10,
                         batch_size=32,
                         shuffle=True,
-                        validation_data=(x_test, x_test))
+                        validation_data=(x_test, x_test), callbacks=[tensorboard_callback, checkpoints])
 
-        autoencoder.save(model_name)
+    tensorboard_callback = k.callbacks.TensorBoard(log_dir="./logs/classifier")
+    checkpoints = k.callbacks.ModelCheckpoint('./models/classifier.h5', monitor='loss', verbose=1,
+                                              save_best_only=True, mode='auto', period=1)
 
     # Obtain features from middle layer
     autoencoder = k.models.load_model(model_name)
+
     encoder = k.Model(inputs=autoencoder.input,
                       outputs=autoencoder.get_layer('encoder').output)
 
@@ -103,4 +112,4 @@ if __name__ == '__main__':
                    epochs=10,
                    batch_size=32,
                    shuffle=True,
-                   validation_data=(x_test, y_test))
+                   validation_data=(x_test, y_test), callbacks=[tensorboard_callback, checkpoints])
