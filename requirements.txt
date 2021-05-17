@@ -1,0 +1,8 @@
+numpy
+pandas
+pillow
+tensorflow
+matplotlib
+tensorflow-datasets
+tensorboard
+jupiterlab
